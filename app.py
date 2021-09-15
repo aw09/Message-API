@@ -145,6 +145,10 @@ class MessageResource(Resource):
     @jwt_required()
     def post(self, receiver_id):
         sender_id = current_identity.id
+        
+        if sender_id == receiver_id:
+            return ({"message": "Invalid input. Cannot send message to yourself"}, 422)
+
         room = checkRoom2User(sender_id, receiver_id)
 
         if room is None:
@@ -159,6 +163,7 @@ class MessageResource(Resource):
         room.last_message = message.content
         
         receiver = MemberOfRoom.query.filter_by(id=receiver_id, room_id=room.id).first()
+        logging.debug("receiver = "+str(receiver.id))
         receiver.unread_count += 1
         session.add(message)
         session.commit()
