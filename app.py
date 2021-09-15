@@ -54,7 +54,7 @@ class UserSchema(ma.Schema):
 
 class RoomSchema(ma.Schema):
     class Meta:
-        fields = ("id", "last_message", "unread_count")
+        fields = ("id", "last_message", "unread_count", "name")
 
 class MemberOfRoomSchema(ma.Schema):
     class Meta:
@@ -106,17 +106,17 @@ class AllUsers(Resource):
 
 class ListRoom(Resource):
     def get(self, user_id):
-        # rooms = session.query(Room.id,Room.last_message,  MemberOfRoom.unread_count).filter((Room.id == MemberOfRoom.room_id) & (MemberOfRoom.user_id == user_id)).all()
         user = aliased(MemberOfRoom)
         other_user = aliased(MemberOfRoom)
-        rooms = session.query(Room, user.unread_count, other_user.user.username) \
+
+        rooms = session.query(Room.id, Room.last_message,  user.unread_count, User.username.label('name')) \
                     .filter(
-                        (Room.id == user.room_id) 
+                        (Room.id == user.room_id)
                         & (user.user_id == user_id)
-                        & (Room.id == other_user.room_id)
-                        & (other_user.user_id == user_id)
-                        ) \
-                    .all()
+                        & (other_user.room_id == Room.id)
+                        & (other_user.user_id != user_id)
+                        & (User.id == other_user.user_id)
+                    )
         return rooms_schema.dump(rooms)
 class RoomResource(Resource):
     def get(self, user_id, room_id):
@@ -136,7 +136,6 @@ class RoomResource(Resource):
         
 class SendMessage(Resource):
     def post(self, sender_id, receiver_id):
-        print("send message")
         room = checkRoom2User(sender_id, receiver_id)
 
         if room is None:
@@ -159,7 +158,6 @@ class SendMessage(Resource):
 # ===============================================
 
 def checkRoom2User(user_id_1, user_id_2):
-    print("Check room")
     room_id_1 = session.query(MemberOfRoom.room_id).filter(MemberOfRoom.user_id==user_id_1)
     room_id_2 = session.query(MemberOfRoom.room_id).filter(MemberOfRoom.user_id==user_id_2)
     room = session.query(Room).filter((Room.id.in_(room_id_1)) & (Room.id.in_(room_id_2))).first()
