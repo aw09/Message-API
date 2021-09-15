@@ -5,11 +5,12 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
 from flask_restful import Api, Resource
 from datetime import date, datetime
-import pytz
+import pytz, sys
 from sqlalchemy.orm import relationship, aliased
+import os
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite3'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ['SQLALCHEMY_DATABASE_URI']
 db = SQLAlchemy(app=app, session_options={"autoflush": False})
 session = db.session
 ma = Marshmallow(app)
@@ -37,7 +38,7 @@ class MemberOfRoom(db.Model):
 class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     room_id = db.Column(db.Integer,db.ForeignKey('room.id'))
-    user_id = db.Column(db.String(12),db.ForeignKey('user.id'))
+    user_id = db.Column(db.Integer,db.ForeignKey('user.id'))
     content = db.Column(db.Text)
     created_on = db.Column(db.DateTime, server_default=db.func.now())
     read_on = db.Column(db.DateTime)
@@ -66,16 +67,10 @@ class MessageSchema(ma.Schema):
 
 # ===============================================
 
-user_schema = UserSchema()
 users_schema = UserSchema(many=True)
 
-room_schema = RoomSchema()
 rooms_schema = RoomSchema(many=True)
 
-member_schema = MemberOfRoomSchema()
-members_schema = MemberOfRoomSchema(many=True)
-
-message_schema = MessageSchema()
 messages_schema = MessageSchema(many=True)
 
 # ===============================================
@@ -129,7 +124,7 @@ class RoomResource(Resource):
         unread_messages = Message.query.filter((Message.room_id == room_id) \
                                                 & (Message.user_id != user_id) \
                                                 & (Message.read_on.is_(None)) ) \
-                                        .update({'read_on': datetime.now()})
+                                        .update({'read_on': datetime.now(tz=pytz.timezone('Asia/Jakarta'))})
         session.commit()
 
         return messages_schema.dump(messages)
@@ -171,9 +166,6 @@ def newRoom(user_id_1, user_id_2):
     session.add(new_room)
     session.commit()
 
-    print("new room")
-    print(new_room)
-
     addMember(new_room.id, user_id_1)
     addMember(new_room.id, user_id_2)
 
@@ -199,4 +191,5 @@ api.add_resource(RoomResource, '/room/<int:user_id>/<int:room_id>')
 api.add_resource(SendMessage, '/message/<int:sender_id>/<int:receiver_id>')
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=2000, debug=True)
+    port = sys.argv[1] if len(sys.argv) > 1 else 2000
+    app.run(host='0.0.0.0', port=port)
