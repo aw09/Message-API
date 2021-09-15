@@ -23,6 +23,7 @@ services:
       - "2000:2000"
     environment: 
       SQLALCHEMY_DATABASE_URI: mysql+mysqlconnector://user:user@172.17.0.1:3310/message_api
+      SECRET_KEY: s3crEt
 
     networks:
       - net
